@@ -148,7 +148,7 @@ body.nomr #noMr{display:block}
       <button class="btn sm" id="expBtn">곡 파일 저장</button>
       <label class="btn sm">곡 파일 열기<input type="file" id="impFile" accept=".json" hidden></label>
     </div>
-    <div class="help">「곡 파일」에는 계이름과 박자가 들어가요. MR 소리는 이 컴퓨터에만 저장되니 다른 컴퓨터에선 MR만 다시 넣어 주세요.</div>
+    <div class="help">「곡 파일」에는 계이름과 박자가 들어가요. MR 소리는 온라인에도 보관돼서, 다른 기기에서 열어도 저절로 받아져요.</div>
   </div>
 
   <div class="card" id="ed">
@@ -258,7 +258,33 @@ function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); 
 const idb=new Promise((ok,no)=>{ try{ const r=indexedDB.open('rec_karaoke',1); r.onupgradeneeded=()=>r.result.createObjectStore('mr'); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error);}catch(e){no(e)} });
 async function mrPut(id,blob){ const db=await idb; return new Promise((ok,no)=>{ const tx=db.transaction('mr','readwrite'); tx.objectStore('mr').put(blob,id); tx.oncomplete=ok; tx.onerror=()=>no(tx.error); }); }
 async function mrGet(id){ try{ const db=await idb; return await new Promise(ok=>{ const r=db.transaction('mr').objectStore('mr').get(id); r.onsuccess=()=>ok(r.result||null); r.onerror=()=>ok(null); }); }catch(e){ return null; } }
-async function mrDel(id){ try{ const db=await idb; db.transaction('mr','readwrite').objectStore('mr').delete(id); }catch(e){} }
+async function mrDel(id){ try{ const db=await idb; db.transaction('mr','readwrite').objectStore('mr').delete(id); }catch(e){} cloudDel(id); }
+try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist(); }catch(e){}
+/* 온라인 보관: 브라우저 저장소가 비워져도 MR을 다시 받아 온다 (조각 64만 자씩) */
+const CLOUD='https://matchmaker-28187-default-rtdb.asia-southeast1.firebasedatabase.app/today_todo_img/reckaraokemr/';
+const ckey=id=>{ let h=5381; for(const c of 'rk:'+id) h=(h*33+c.charCodeAt(0))>>>0; return h.toString(36).padStart(7,'0').slice(0,7); };
+const CH=640000;
+async function cloudPut(id,blob){
+  const u=await new Promise(ok=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.readAsDataURL(blob); });
+  const n=Math.ceil(u.length/CH), k=ckey(id);
+  for(let i=0;i<n;i++){ const r=await fetch(CLOUD+k+'p'+i+'.json',{method:'PUT',body:JSON.stringify(u.slice(i*CH,(i+1)*CH))}); if(!r.ok) throw 0; }
+  const r=await fetch(CLOUD+k+'m.json',{method:'PUT',body:JSON.stringify(n+'|'+(blob.type||'audio/mpeg'))}); if(!r.ok) throw 0;
+}
+async function cloudGet(id){
+  try{ const k=ckey(id), m=await (await fetch(CLOUD+k+'m.json')).json(); if(!m) return null;
+    const n=+m.split('|')[0]; let u='';
+    for(let i=0;i<n;i++){ const c=await (await fetch(CLOUD+k+'p'+i+'.json')).json(); if(typeof c!=='string') return null; u+=c; }
+    return await (await fetch(u)).blob();
+  }catch(e){ return null; }
+}
+async function cloudDel(id){ try{ const k=ckey(id), m=await (await fetch(CLOUD+k+'m.json')).json(); const n=m?+m.split('|')[0]:0;
+  await fetch(CLOUD+k+'m.json',{method:'DELETE'}); for(let i=0;i<n;i++) fetch(CLOUD+k+'p'+i+'.json',{method:'DELETE'}); }catch(e){} }
+async function mrSave(id,blob){ await mrPut(id,blob); toast('🎵 MR을 넣었어요 · 온라인에도 보관 중…');
+  try{ await cloudPut(id,blob); toast('☁️ MR을 온라인에도 보관했어요'); }catch(e){ toast('⚠️ 온라인 보관 실패 · 이 기기에만 있어요'); } }
+const mrLoading=new Map();
+async function mrFind(id){ const b=await mrGet(id); if(b) return b;
+  if(!mrLoading.has(id)) mrLoading.set(id,(async()=>{ const c=await cloudGet(id); if(c){ try{ await mrPut(id,c); }catch(e){} } mrLoading.delete(id); return c; })());
+  return mrLoading.get(id); }
 
 /* ---------- 계이름 해석 ---------- */
 const NOTE={'도':0,'레':2,'미':4,'파':5,'솔':7,'라':9,'시':11};
@@ -347,7 +373,7 @@ async function drawEd(){
   P=parse(s.text); drawChips(); drawMr();
 }
 async function drawMr(){
-  const s=song(), b=await mrGet(s.id);
+  const s=song(); $('#mrName').textContent='🎵 MR 확인 중…'; const b=await mrFind(s.id);
   $('#mrBox').classList.toggle('has',!!b);
   $('#mrName').textContent=b?`🎵 ${s.mrName||'MR'} (${fmt(await durOf(b))})`:'MR 파일이 아직 없어요 — 없으면 안내 멜로디로 연주해요';
   $('#mrDel').style.display=b?'':'none';
@@ -391,9 +417,9 @@ $('#text').oninput=e=>{
   }
   s.text=e.target.value; save(); P=parse(s.text); drawChips(); drawSongs();
 };
-$('#mrFile').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; const s=song(); await mrPut(s.id,f); s.mrName=f.name; save(); drawMr(); drawSongs(); toast('🎵 MR을 넣었어요'); e.target.value=''; };
+$('#mrFile').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; const s=song(); s.mrName=f.name; save(); e.target.value=''; await mrSave(s.id,f); drawMr(); drawSongs(); };
 $('#mrDel').onclick=async()=>{ if(!confirm('MR 파일을 뺄까요? (계이름과 박자는 그대로)'))return; const s=song(); await mrDel(s.id); s.mrName=''; save(); drawMr(); drawSongs(); };
-['dragover','drop'].forEach(ev=>$('#mrBox').addEventListener(ev,async e=>{ e.preventDefault(); if(ev==='drop'){ const f=e.dataTransfer.files[0]; if(f&&/audio|mp3|m4a|wav/i.test(f.type+f.name)){ const s=song(); await mrPut(s.id,f); s.mrName=f.name; save(); drawMr(); drawSongs(); toast('🎵 MR을 넣었어요'); } } }));
+['dragover','drop'].forEach(ev=>$('#mrBox').addEventListener(ev,async e=>{ e.preventDefault(); if(ev==='drop'){ const f=e.dataTransfer.files[0]; if(f&&/audio|mp3|m4a|wav/i.test(f.type+f.name)){ const s=song(); s.mrName=f.name; save(); await mrSave(s.id,f); drawMr(); drawSongs(); } } }));
 $('#expBtn').onclick=()=>{ const s=song(); const b=new Blob([JSON.stringify({app:'rec_karaoke',title:s.title,text:s.text,times:s.times},null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=(s.title||'곡')+'.json'; a.click(); };
 $('#impFile').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; try{ const d=JSON.parse(await f.text()); if(typeof d.text!=='string') throw 0; const id=uid(); S.songs.push({id,title:d.title||'가져온 곡',text:d.text,times:Array.isArray(d.times)?d.times:[],mrName:''}); S.cur=id; save(); drawSongs(); drawEd(); toast('곡을 가져왔어요. MR 파일을 넣어 주세요'); }catch(_){ toast('곡 파일을 읽지 못했어요'); } e.target.value=''; };
 
@@ -401,7 +427,7 @@ $('#impFile').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; try{ 
 const audio=new Audio(); audio.preservesPitch=true; audio.mozPreservesPitch=true; audio.webkitPreservesPitch=true;
 let hasMr=false, clk={on:false,base:0,at:0,rate:1}, curUrl=null;
 async function loadMr(){
-  const b=await mrGet(song().id);
+  const b=await mrFind(song().id);
   if(curUrl){ URL.revokeObjectURL(curUrl); curUrl=null; }
   hasMr=!!b;
   if(b){ curUrl=URL.createObjectURL(b); audio.src=curUrl; await new Promise(ok=>{ audio.onloadedmetadata=ok; audio.onerror=ok; setTimeout(ok,3000); }); }
