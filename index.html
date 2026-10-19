@@ -121,7 +121,9 @@ body.nof #fing{display:none}
 #prog i{position:absolute;top:-.4vh;bottom:-.4vh;width:2px;background:#ffffff55}
 #ctrl{position:absolute;left:2vw;right:2vw;bottom:2.2vh;display:flex;justify-content:center;gap:.6vw;flex-wrap:nowrap;transition:opacity .4s}
 #ctrl button{background:#ffffff1f;color:#fff;font-family:'Jua';font-size:min(2.4vh,1.35vw);white-space:nowrap;padding:1vh 1vw;border-radius:99px;border:2px solid #ffffff30}
+#ctrl .rt{display:flex;gap:2px}#ctrl .rt button{padding:1vh .6vw}#ctrl .rt #cRate{min-width:7.5vw}
 #ctrl button.on{background:#ffd23f;color:#3a2600;border-color:#ffd23f}
+#ctrl button:disabled{opacity:.35}
 #ctrl button.main{background:#ff7a59;border-color:#ff7a59;min-width:9vw}
 body.idle #ctrl,body.idle #sTop .sp~*{opacity:0}
 body.idle #stage{cursor:none}
@@ -227,7 +229,7 @@ body.nomr #noMr{display:block}
     <button id="cPlay" class="main">▶ 시작</button>
     <button id="cNext">다음 줄 ⏩</button>
     <button id="cLoop">🔁 이 줄 반복</button>
-    <button id="cRate">빠르기 1배</button>
+    <span class="rt"><button id="cSlow" title="더 느리게">🐢</button><button id="cRate" title="누르면 보통 빠르기로">빠르기 1배</button><button id="cFast" title="더 빠르게">🐇</button></span>
     <button id="cGuide">🎵 안내 멜로디</button>
     <button id="cFing" class="on">🪈 운지법</button>
     <button id="cType">저먼식</button>
@@ -530,7 +532,7 @@ async function openPlay(){
   $('#sTitle').textContent='🎶 '+(s.title||'');
   $('#cFing').classList.toggle('on',S.fing); $('#cType').textContent=S.type==='german'?'저먼식':'바로크식';
   S.guide = hasMr? !!S.guideMr : true; $('#cGuide').classList.toggle('on',S.guide);
-  $('#cRate').textContent=`빠르기 ${rateNm(S.rate)}`; pl.rate(S.rate);
+  if(!RATES.includes(S.rate)) S.rate=S.rate===.75?.7:1; setRate(S.rate);
   // 진행 막대 눈금 = 절 시작
   const D=pl.dur(); $('#prog').innerHTML='<div></div>'+P.lines.filter((L,i)=>!L.blank&&(i===0||P.lines[i-1].blank)).map(L=>`<i style="left:${s.times[L.first]/D*100}%"></i>`).join('');
   stars(); lineIdx=-99; ended=false; $('#endS').classList.remove('on');
@@ -540,7 +542,8 @@ async function openPlay(){
 }
 function autoTimes(){ const s=song(); let t=2; s.times=P.notes.map((n,i)=>{ const x=t; t+=0.6; if(P.notes[i+1]&&P.notes[i+1].line!==n.line) t+=0.6; return Math.round(x*100)/100; }); save(); }
 function fillGaps(){ const s=song(); const T=s.times; for(let i=0;i<P.notes.length;i++){ if(T[i]==null){ let a=i-1; while(a>=0&&T[a]==null)a--; let b=i+1; while(b<P.notes.length&&T[b]==null)b++; const ta=a>=0?T[a]:(T[b]!=null?T[b]-0.6*(b-i+1):1), tb=b<P.notes.length?T[b]:null; T[i]= tb!=null? ta+(tb-ta)*(i-a)/(b-a) : ta+0.6*(i-a); } } save(); }
-const rateNm=r=>r===1?'1배':r===.75?'0.75배':'0.5배';
+const RATES=[.3,.4,.5,.6,.7,.8,.9,1];
+const rateNm=r=>r===1?'1배':r+'배';
 function closePlay(){ pl.pause(); cancelAnimationFrame(raf); document.body.classList.remove('play','idle'); if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); drawSongs(); }
 function lineOf(t){
   // 지금 줄 = 시작한 음이 속한 줄, 첫 음 전이면 첫 줄
@@ -661,7 +664,11 @@ $('#cHome').onclick=()=>{ ended=false; $('#endS').classList.remove('on'); pl.see
 $('#cPrev').onclick=()=>{ const t=pl.t(), L=P.lines[lineIdx]; const st=R.sp[L.first].st; jumpLine(t-st>1.5? lineIdx : prevLine(lineIdx)); };
 $('#cNext').onclick=()=>jumpLine(nextLine(lineIdx));
 $('#cLoop').onclick=()=>{ loopLine=!loopLine; paintCtrl(); toast(loopLine?'🔁 지금 줄을 계속 반복해요':'반복을 껐어요'); };
-$('#cRate').onclick=()=>{ S.rate= S.rate===1?.75: S.rate===.75?.5:1; pl.rate(S.rate); $('#cRate').textContent=`빠르기 ${rateNm(S.rate)}`; save(); };
+function setRate(r){ S.rate=r; pl.rate(r); $('#cRate').textContent=`빠르기 ${rateNm(r)}`; $('#cSlow').disabled=r<=RATES[0]; $('#cFast').disabled=r>=1; save(); }
+const rateIx=()=>{ let i=RATES.findIndex(x=>x>=S.rate-.001); return i<0?RATES.length-1:i; };
+$('#cSlow').onclick=()=>setRate(RATES[Math.max(0,rateIx()-1)]);
+$('#cFast').onclick=()=>setRate(RATES[Math.min(RATES.length-1,rateIx()+1)]);
+$('#cRate').onclick=()=>setRate(1);
 $('#cGuide').onclick=()=>{ S.guide=!S.guide; if(hasMr) S.guideMr=S.guide; $('#cGuide').classList.toggle('on',S.guide); if(!S.guide) stopTone(); save(); };
 $('#cFing').onclick=()=>{ S.fing=!S.fing; document.body.classList.toggle('nof',!S.fing); $('#cFing').classList.toggle('on',S.fing); save(); setTimeout(()=>setLine(lineIdx),50); };
 $('#cType').onclick=()=>{ S.type= S.type==='german'?'baroque':'german'; $('#cType').textContent=S.type==='german'?'저먼식':'바로크식'; R.fShow=-9; save(); toast(S.type==='german'?'저먼식 운지법 (파 = 4번까지 막기)':'바로크식 운지법 (파 = 4·6·7번 막기)'); };
