@@ -500,7 +500,7 @@ function playTone(m,len){
   const o=a.createOscillator(), g=a.createGain(), lp=a.createBiquadFilter(), v=a.createOscillator(), vg=a.createGain();
   o.type='triangle'; o.frequency.value=f; lp.type='lowpass'; lp.frequency.value=f*4;
   v.frequency.value=5.2; vg.gain.value=f*.006; v.connect(vg); vg.connect(o.frequency);
-  const vol=hasMr?.16:.3, L=Math.max(.12,Math.min(len,2.5));
+  const vol=SHOW?(hasMr?.06:.12):hasMr?.16:.3, L=Math.max(.12,Math.min(len,2.5));
   g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.025); g.gain.setValueAtTime(vol,t+L*.85); g.gain.linearRampToValueAtTime(0,t+L);
   o.connect(lp); lp.connect(g); g.connect(a.destination); o.start(t); v.start(t); o.stop(t+L+.05); v.stop(t+L+.05);
   tone={o,g};
@@ -578,7 +578,7 @@ async function openPlay(e){
   $('#sTitle').textContent='🎶 '+(s.title||'')+(Q?` · 공연 ${qi+1}/${Q.length}곡`:'');
   $('#cSkip').style.display=Q&&qi<Q.length-1?'':'none'; $('#endT').textContent='👏 참 잘했어요!'; $('#endM').textContent='스페이스바를 누르면 처음부터 다시';
   $('#cFing').classList.toggle('on',S.fing); $('#cType').textContent=S.type==='german'?'저먼식':'바로크식';
-  S.guide = SHOW? false : hasMr? !!S.guideMr : true; $('#cGuide').classList.toggle('on',S.guide);
+  S.guide = SHOW? S.showGuide!==false : hasMr? !!S.guideMr : true; $('#cGuide').classList.toggle('on',S.guide);
   if(!RATES.includes(S.rate)) S.rate=S.rate===.75?.7:1; setRate(Q? qRate(Q[qi]) : S.rate);
   // 진행 막대 눈금 = 절 시작
   const D=pl.dur(); $('#prog').innerHTML='<div></div>'+P.lines.filter((L,i)=>!L.blank&&(i===0||P.lines[i-1].blank)).map(L=>`<i style="left:${s.times[L.first]/D*100}%"></i>`).join('');
@@ -784,7 +784,7 @@ const rateIx=()=>{ let i=RATES.findIndex(x=>x>=S.rate-.001); return i<0?RATES.le
 $('#cSlow').onclick=()=>setRate(RATES[Math.max(0,rateIx()-1)]);
 $('#cFast').onclick=()=>setRate(RATES[Math.min(RATES.length-1,rateIx()+1)]);
 $('#cRate').onclick=()=>setRate(1);
-$('#cGuide').onclick=()=>{ S.guide=!S.guide; if(hasMr) S.guideMr=S.guide; $('#cGuide').classList.toggle('on',S.guide); if(!S.guide) stopTone(); save(); };
+$('#cGuide').onclick=()=>{ S.guide=!S.guide; if(SHOW) S.showGuide=S.guide; else if(hasMr) S.guideMr=S.guide; $('#cGuide').classList.toggle('on',S.guide); if(!S.guide) stopTone(); save(); };
 $('#cFing').onclick=()=>{ S.fing=!S.fing; document.body.classList.toggle('nof',!S.fing); $('#cFing').classList.toggle('on',S.fing); save(); setTimeout(()=>setLine(lineIdx),50); };
 $('#cType').onclick=()=>{ S.type= S.type==='german'?'baroque':'german'; $('#cType').textContent=S.type==='german'?'저먼식':'바로크식'; R.fShow=-9; save(); toast(S.type==='german'?'저먼식 운지법 (파 = 4번까지 막기)':'바로크식 운지법 (파 = 4·6·7번 막기)'); };
 $('#cFull').onclick=()=>{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(()=>{}); };
