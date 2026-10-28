@@ -392,9 +392,11 @@ function drawSongs(){
   }).join('');
   drawSet();
 }
-// 공연 순서 (이어서 연주)
+// 공연 순서 (이어서 연주) · 곡마다 빠르기 따로 (🐢🐇로 바꾸면 그 곡 값으로 기억)
+const QRATE0={moonriver:1,autumn:.8,eomeoni:1};
+const qRate=id=>{ const r=(S.qRate&&S.qRate[id])??QRATE0[id]??1; return RATES.includes(r)?r:1; };
 const SETL=()=>(S.set||['moonriver','autumn','eomeoni']).map(id=>S.songs.find(s=>s.id===id)).filter(Boolean);
-function drawSet(){ const L=SETL(); $('#setBtn').style.display=L.length>1?'':'none'; $('#setNm').textContent=L.map(s=>s.title.replace(/\s*\(.*\)/,'')).join(' → '); }
+function drawSet(){ const L=SETL(); $('#setBtn').style.display=L.length>1?'':'none'; $('#setNm').textContent=L.map(s=>s.title.replace(/\s*\(.*\)/,'')+(qRate(s.id)!==1?` (${rateNm(qRate(s.id))})`:'')).join(' → '); }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function drawEd(){
   const s=song();
@@ -561,7 +563,7 @@ async function openPlay(e){
   $('#cSkip').style.display=Q&&qi<Q.length-1?'':'none'; $('#endT').textContent='👏 참 잘했어요!'; $('#endM').textContent='스페이스바를 누르면 처음부터 다시';
   $('#cFing').classList.toggle('on',S.fing); $('#cType').textContent=S.type==='german'?'저먼식':'바로크식';
   S.guide = hasMr? !!S.guideMr : true; $('#cGuide').classList.toggle('on',S.guide);
-  if(!RATES.includes(S.rate)) S.rate=S.rate===.75?.7:1; setRate(S.rate);
+  if(!RATES.includes(S.rate)) S.rate=S.rate===.75?.7:1; setRate(Q? qRate(Q[qi]) : S.rate);
   // 진행 막대 눈금 = 절 시작
   const D=pl.dur(); $('#prog').innerHTML='<div></div>'+P.lines.filter((L,i)=>!L.blank&&(i===0||P.lines[i-1].blank)).map(L=>`<i style="left:${s.times[L.first]/D*100}%"></i>`).join('');
   stars(); lineIdx=-99; ended=false; $('#endS').classList.remove('on');
@@ -574,7 +576,7 @@ function fillGaps(){ const s=song(); const T=s.times; for(let i=0;i<P.notes.leng
 async function playQ(i){ qi=i; S.cur=Q[qi]; save(); await openPlay('q'); pl.play(); paintCtrl(); }
 function endQ(){ // 곡이 끝났을 때: 공연 중이면 다음 곡 안내 후 이어서
   if(!Q) return;
-  if(qi<Q.length-1){ const nx=S.songs.find(s=>s.id===Q[qi+1]); $('#endT').textContent='🎵 다음 곡'; $('#endM').innerHTML=`<b style="font-size:2.4em">「${esc(nx?nx.title:'')}」</b><br>곧 시작해요 · 준비~`; clearTimeout(qT); qT=setTimeout(()=>{ if(Q&&ended) playQ(qi+1); },4000); }
+  if(qi<Q.length-1){ const nx=S.songs.find(s=>s.id===Q[qi+1]); $('#endT').textContent='🎵 다음 곡'; $('#endM').innerHTML=`<b style="font-size:2.4em">「${esc(nx?nx.title:'')}」</b><br>곧 시작해요 · 준비~ (빠르기 ${rateNm(qRate(Q[qi+1]))})`; clearTimeout(qT); qT=setTimeout(()=>{ if(Q&&ended) playQ(qi+1); },4000); }
   else { $('#endT').textContent='👏 공연 끝! 참 잘했어요!'; $('#endM').textContent='스페이스바를 누르면 첫 곡부터 다시'; }
 }
 $('#setBtn').onclick=async()=>{ const L=SETL(); if(!L.length)return; Q=L.map(s=>s.id); ac(); await playQ(0); };
@@ -701,7 +703,7 @@ $('#cHome').onclick=()=>{ ended=false; $('#endS').classList.remove('on'); pl.see
 $('#cPrev').onclick=()=>{ const t=pl.t(), L=P.lines[lineIdx]; const st=R.sp[L.first].st; jumpLine(t-st>1.5? lineIdx : prevLine(lineIdx)); };
 $('#cNext').onclick=()=>jumpLine(nextLine(lineIdx));
 $('#cLoop').onclick=()=>{ loopLine=!loopLine; paintCtrl(); toast(loopLine?'🔁 지금 줄을 계속 반복해요':'반복을 껐어요'); };
-function setRate(r){ S.rate=r; pl.rate(r); $('#cRate').textContent=`빠르기 ${rateNm(r)}`; $('#cSlow').disabled=r<=RATES[0]; $('#cFast').disabled=r>=1; save(); }
+function setRate(r){ if(Q){ S.qRate=S.qRate||{}; S.qRate[Q[qi]]=r; } else S.rate=r; pl.rate(r); $('#cRate').textContent=`빠르기 ${rateNm(r)}`; $('#cSlow').disabled=r<=RATES[0]; $('#cFast').disabled=r>=1; save(); }
 const rateIx=()=>{ let i=RATES.findIndex(x=>x>=S.rate-.001); return i<0?RATES.length-1:i; };
 $('#cSlow').onclick=()=>setRate(RATES[Math.max(0,rateIx()-1)]);
 $('#cFast').onclick=()=>setRate(RATES[Math.min(RATES.length-1,rateIx()+1)]);
