@@ -769,7 +769,7 @@ const dashCache={};
 function dashCount(i){ const L=P.lines[P.notes[i].line]; let c=0; L.groups.forEach(g=>g.forEach(it=>{ if(it.of===i) c++; })); return c; }
 function dashIndex(el){ const of=el.dataset.of; const all=$$(`#ln1 .n.dash[data-of="${of}"]`); return all.indexOf(el); }
 function paintCtrl(){ $('#cPlay').textContent= pl.on? '⏸ 멈춤' : (ended?'↺ 다시':'▶ 시작'); $('#cLoop').classList.toggle('on',loopLine); }
-function togglePlay(){ ac(); if(ended && Q){ clearTimeout(qT); ended=false; playQ(qi<Q.length-1?qi+1:0); return; } if(ended){ ended=false; $('#endS').classList.remove('on'); pl.seek(0); lineIdx=-99; }
+function togglePlay(){ ac(); if(SHOW && !document.fullscreenElement){ try{ document.documentElement.requestFullscreen().catch(()=>{}); }catch(e){} } if(ended && Q){ clearTimeout(qT); ended=false; playQ(qi<Q.length-1?qi+1:0); return; } if(ended){ ended=false; $('#endS').classList.remove('on'); pl.seek(0); lineIdx=-99; }
   if(pl.on) pl.pause(); else pl.play(); paintCtrl(); }
 function jumpLine(li){ if(li<0)return; ended=false; $('#endS').classList.remove('on'); const L=P.lines[li]; pl.seek(Math.max(0,R.sp[L.first].st-1.6)); setLine(li); }
 $('#big').onclick=openPlay;
@@ -804,6 +804,8 @@ document.addEventListener('keydown',e=>{
 });
 
 drawSongs(); drawEd(); drawSet(); save();
+// 꿈끼 무대 화면에서 #show로 열면 바로 공연 화면 (스페이스로 시작)
+if(/^#show/.test(location.hash)) setTimeout(()=>$('#showBtn').click(),300);
 </script>
 </body>
 </html>
