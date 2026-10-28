@@ -500,7 +500,7 @@ function playTone(m,len){
   const o=a.createOscillator(), g=a.createGain(), lp=a.createBiquadFilter(), v=a.createOscillator(), vg=a.createGain();
   o.type='triangle'; o.frequency.value=f; lp.type='lowpass'; lp.frequency.value=f*4;
   v.frequency.value=5.2; vg.gain.value=f*.006; v.connect(vg); vg.connect(o.frequency);
-  const vol=SHOW?(hasMr?.06:.12):hasMr?.16:.3, L=Math.max(.12,Math.min(len,2.5));
+  const vol=SHOW?(hasMr?.05:.1):hasMr?.09:.22, L=Math.max(.12,Math.min(len,2.5));
   g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.025); g.gain.setValueAtTime(vol,t+L*.85); g.gain.linearRampToValueAtTime(0,t+L);
   o.connect(lp); lp.connect(g); g.connect(a.destination); o.start(t); v.start(t); o.stop(t+L+.05); v.stop(t+L+.05);
   tone={o,g};
