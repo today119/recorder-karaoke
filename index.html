@@ -659,7 +659,7 @@ function shDraw(now){
 }
 const RATES=[.3,.4,.5,.6,.7,.8,.9,1];
 const rateNm=r=>r===1?'1배':r+'배';
-function closePlay(){ Q=null; SHOW=false; document.body.classList.remove('show'); clearTimeout(qT); pl.pause(); cancelAnimationFrame(raf); document.body.classList.remove('play','idle'); if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); drawSongs(); }
+function closePlay(){ if(EMBED && SHOW){ pl.pause(); parent.postMessage('rk-close','*'); return; } Q=null; SHOW=false; document.body.classList.remove('show'); clearTimeout(qT); pl.pause(); cancelAnimationFrame(raf); document.body.classList.remove('play','idle'); if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); drawSongs(); }
 function lineOf(t){
   // 지금 줄 = 시작한 음이 속한 줄, 첫 음 전이면 첫 줄
   const k=curNoteR(t); if(k<0) return firstLine();
