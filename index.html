@@ -603,7 +603,7 @@ function autoTimes(){ const s=song(); let t=2; s.times=P.notes.map((n,i)=>{ cons
 function fillGaps(){ const s=song(); const T=s.times; for(let i=0;i<P.notes.length;i++){ if(T[i]==null){ let a=i-1; while(a>=0&&T[a]==null)a--; let b=i+1; while(b<P.notes.length&&T[b]==null)b++; const ta=a>=0?T[a]:(T[b]!=null?T[b]-0.6*(b-i+1):1), tb=b<P.notes.length?T[b]:null; T[i]= tb!=null? ta+(tb-ta)*(i-a)/(b-a) : ta+0.6*(i-a); } } save(); }
 async function playQ(i){ qi=i; S.cur=Q[qi]; save(); await openPlay('q');
   // 공연 중엔 긴 전주를 줄여서 첫 음 6초 앞부터 (곡 사이 텀 줄이기)
-  const f=(song().times||[]).find(x=>x!=null); if(f>8) pl.seek(f-6);
+  const f=(song().times||[]).find(x=>x!=null); if(i>0 && f>8) pl.seek(f-6);
   pl.play(); paintCtrl(); }
 function endQ(){ // 곡이 끝났을 때: 공연 중이면 다음 곡 안내 후 이어서
   if(!Q) return;
