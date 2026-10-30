@@ -310,13 +310,13 @@ async function cloudPut(id,blob){
   const u=await new Promise(ok=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.readAsDataURL(blob); });
   const n=Math.ceil(u.length/CH), k=ckey(id);
   for(let i=0;i<n;i++){ const r=await fetch(CLOUD+k+'p'+i+'.json',{method:'PUT',body:JSON.stringify(u.slice(i*CH,(i+1)*CH))}); if(!r.ok) throw 0; }
-  const r=await fetch(CLOUD+k+'m.json',{method:'PUT',body:JSON.stringify(n+'|'+(blob.type||'audio/mpeg'))}); if(!r.ok) throw 0;
+  const mm=n+'|'+(blob.type||'audio/mpeg'), r=await fetch(CLOUD+k+'m.json',{method:'PUT',body:JSON.stringify(mm)}); if(!r.ok) throw 0; mrvSet(id,mm);
 }
 async function cloudGet(id){
   try{ const k=ckey(id), m=await (await fetch(CLOUD+k+'m.json')).json(); if(!m) return null;
     const n=+m.split('|')[0]; let u='';
     for(let i=0;i<n;i++){ const c=await (await fetch(CLOUD+k+'p'+i+'.json')).json(); if(typeof c!=='string') return null; u+=c; }
-    return await (await fetch(u)).blob();
+    const bl=await (await fetch(u)).blob(); mrvSet(id,m); return bl;
   }catch(e){ return null; }
 }
 async function cloudDel(id){ try{ const k=ckey(id), m=await (await fetch(CLOUD+k+'m.json')).json(); const n=m?+m.split('|')[0]:0;
@@ -324,7 +324,18 @@ async function cloudDel(id){ try{ const k=ckey(id), m=await (await fetch(CLOUD+k
 async function mrSave(id,blob){ await mrPut(id,blob); toast('🎵 MR을 넣었어요 · 온라인에도 보관 중…');
   try{ await cloudPut(id,blob); toast('☁️ MR을 온라인에도 보관했어요'); }catch(e){ toast('⚠️ 온라인 보관 실패 · 이 기기에만 있어요'); } }
 const mrLoading=new Map();
-async function mrFind(id){ const b=await mrGet(id); if(b) return b;
+// 온라인 MR에 버전 꼬리표(|v…)가 붙어 있으면, 이 기기 사본이 옛것일 때 한 번 새로 받는다
+const MRV='rk_mrv', mrChecked=new Set();
+function mrvGet(){ try{ return JSON.parse(localStorage.getItem(MRV)||'{}'); }catch(e){ return {}; } }
+function mrvSet(id,m){ try{ const o=mrvGet(); o[id]=m; localStorage.setItem(MRV,JSON.stringify(o)); }catch(e){} }
+async function mrFresh(id,b){ if(mrChecked.has(id)) return b; mrChecked.add(id);
+  try{ const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),3000);
+    const m=await (await fetch(CLOUD+ckey(id)+'m.json',{signal:ctl.signal})).json(); clearTimeout(t);
+    if(typeof m!=='string' || !/\|v[^|]*$/.test(m) || mrvGet()[id]===m) return b;
+    const c=await cloudGet(id); if(!c) return b; try{ await mrPut(id,c); }catch(e){} return c;
+  }catch(e){ return b; } }
+async function mrFind(id){ const b0=await mrGet(id);
+  if(b0){ if(!mrLoading.has(id)) mrLoading.set(id,mrFresh(id,b0).then(r=>{ mrLoading.delete(id); return r; })); return mrLoading.get(id); }
   if(!mrLoading.has(id)) mrLoading.set(id,(async()=>{ const c=await cloudGet(id); if(c){ try{ await mrPut(id,c); }catch(e){} } mrLoading.delete(id); return c; })());
   return mrLoading.get(id); }
 
