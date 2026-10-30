@@ -601,10 +601,13 @@ async function openPlay(e){
 }
 function autoTimes(){ const s=song(); let t=2; s.times=P.notes.map((n,i)=>{ const x=t; t+=0.6; if(P.notes[i+1]&&P.notes[i+1].line!==n.line) t+=0.6; return Math.round(x*100)/100; }); save(); }
 function fillGaps(){ const s=song(); const T=s.times; for(let i=0;i<P.notes.length;i++){ if(T[i]==null){ let a=i-1; while(a>=0&&T[a]==null)a--; let b=i+1; while(b<P.notes.length&&T[b]==null)b++; const ta=a>=0?T[a]:(T[b]!=null?T[b]-0.6*(b-i+1):1), tb=b<P.notes.length?T[b]:null; T[i]= tb!=null? ta+(tb-ta)*(i-a)/(b-a) : ta+0.6*(i-a); } } save(); }
-async function playQ(i){ qi=i; S.cur=Q[qi]; save(); await openPlay('q'); pl.play(); paintCtrl(); }
+async function playQ(i){ qi=i; S.cur=Q[qi]; save(); await openPlay('q');
+  // 공연 중엔 긴 전주를 줄여서 첫 음 6초 앞부터 (곡 사이 텀 줄이기)
+  const f=(song().times||[]).find(x=>x!=null); if(f>8) pl.seek(f-6);
+  pl.play(); paintCtrl(); }
 function endQ(){ // 곡이 끝났을 때: 공연 중이면 다음 곡 안내 후 이어서
   if(!Q) return;
-  if(qi<Q.length-1){ const nx=S.songs.find(s=>s.id===Q[qi+1]); $('#endT').textContent='🎵 다음 곡'; $('#endM').innerHTML= SHOW? `<b style="font-size:2.6em">${themeOf(nx).em} ${esc(showName(nx))}</b>` : `<b style="font-size:2.4em">「${esc(nx?nx.title:'')}」</b><br>곧 시작해요 · 준비~ (빠르기 ${rateNm(qRate(Q[qi+1]))})`; clearTimeout(qT); qT=setTimeout(()=>{ if(Q&&ended) playQ(qi+1); },4000); }
+  if(qi<Q.length-1){ const nx=S.songs.find(s=>s.id===Q[qi+1]); $('#endT').textContent='🎵 다음 곡'; $('#endM').innerHTML= SHOW? `<b style="font-size:2.6em">${themeOf(nx).em} ${esc(showName(nx))}</b>` : `<b style="font-size:2.4em">「${esc(nx?nx.title:'')}」</b><br>곧 시작해요 · 준비~ (빠르기 ${rateNm(qRate(Q[qi+1]))})`; clearTimeout(qT); qT=setTimeout(()=>{ if(Q&&ended) playQ(qi+1); },2000); }
   else if(SHOW){ $('#endT').textContent='💐 감사합니다'; $('#endM').innerHTML='<b style="font-size:1.6em">4학년 6반 리코더 연주를 들어 주셔서 고맙습니다</b>'; if(EMBED){ clearTimeout(qT); qT=setTimeout(()=>{ if(ended) parent.postMessage('rk-done','*'); },6000); } }
   else { $('#endT').textContent='👏 공연 끝! 참 잘했어요!'; $('#endM').textContent='스페이스바를 누르면 첫 곡부터 다시'; }
 }
