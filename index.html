@@ -141,6 +141,7 @@ body.show #showT.mini{justify-content:flex-end;padding-bottom:7vh}
 #showT.mini .em{font-size:7vh}#showT.mini .tt{font-size:8vh}#showT.mini .st{font-size:3vh}
 @keyframes flt{to{transform:translateY(-1.5vh)}}
 body.show #endS{background:#0006;backdrop-filter:blur(6px)}
+#bootC{display:none}html.boot #bootC{display:flex;position:fixed;inset:0;z-index:99999;background:radial-gradient(circle at 50% 40%,#2a3a7a,#0d1330);color:#fff;align-items:center;justify-content:center;font-size:4vh;transition:opacity .5s}html.boot #bootC.out{opacity:0}
 #endS b{font-weight:400}
 #endS{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:3vh;background:#0d0a26cc;font-size:10vh}
 #endS.on{display:flex}
@@ -148,6 +149,7 @@ body.show #endS{background:#0006;backdrop-filter:blur(6px)}
 </style>
 </head>
 <body>
+<div id="bootC">🎼</div><script>if(/^#show/.test(location.hash)) document.documentElement.classList.add('boot');</script>
 <header>
   <h1>🎶 리코더 계이름 노래방</h1>
   <small>MR에 맞춰 계이름이 노래방처럼 차올라요</small>
@@ -822,7 +824,9 @@ document.addEventListener('keydown',e=>{
 drawSongs(); drawEd(); drawSet(); save();
 // 꿈끼 무대 화면에서 #show로 열면 바로 공연 화면 (스페이스로 시작)
 // 무대 화면 안(iframe)에서 열리면: 전체화면 요청 안 함, Enter = 닫고 무대 화면으로, 마지막 곡 끝나면 6초 뒤 자동으로 닫힘
-if(/^#show/.test(location.hash)) setTimeout(()=>$('#showBtn').click(),300);
+// 공연 화면이 다 그려질 때까지 시작 화면을 가려 둔다(목록 화면이 비치지 않게) → 다 되면 부모(꿈끼)에게 rk-ready
+function bootDone(){ const c=$('#bootC'); if(!c||!document.documentElement.classList.contains('boot')) return; c.classList.add('out'); setTimeout(()=>document.documentElement.classList.remove('boot'),500); if(EMBED) parent.postMessage('rk-ready','*'); }
+if(/^#show/.test(location.hash)){ setTimeout(async()=>{ try{ await $('#showBtn').onclick(); }catch(e){} setTimeout(bootDone,250); },50); setTimeout(bootDone,4000); }
 </script>
 </body>
 </html>
